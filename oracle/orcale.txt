@@ -1,1 +1,193 @@
-前言：收集50个知识点。
+前言：收集50个知识点。在平时的工作中学习oracle知识，不要再增加业余时间了。
+【第三部分：应用Oracle内容】
+第一节：前言
+oracle的知识分为：oracle的维护，plsql基础知识，运用plsql基础知识的知识，高级plsql编程。目前我所处于的阶段是运用基础知识阶段，要重视这些知识。
+第二节：char,varchar/varchar2,nvarchar/nvarchar2 区别
+（1）char指的是固定长度字符串，使用固定长度字符串类型保存数据的时候，由于剩余部分会以空格填充，那么在读取的字符值的时候也会将后面填充的空格读出来，这种情况给程序处理带来了很大的不便。注意：char是区分中英文的，中文在char中占两个字节，而英文占一个，所以char(20)你只能存20个字母或10个汉字。char适用于长度比较固定的，一般不含中文的情况。
+（2）vchar指的是可变长度字符类型，比如，存储字符串“abc"，对于char(20)，表示存储的字符将占20个字节(包括17个空字符)，而同样的varchar(20)则只占用3个字节的长度，20只是最大值，当存储的字符小于20时，按实际长度存储。注意：varchar同样区分中英文，这点同char。
+（3）varchar2是Oracle自己开发了一个数据类型。vchar是工业标准，可以存储空字符串，但是Oracle自己开发了一个数据类型varchar2，这个类型不是一个标准的varchar，它将在数据库中varchar列可以存储空字符串的特性改为存储null值。
+（4）nvarchar不区分中英文，都是占两个字节的。比如说：你定义了nvarchar(20)，你可以存入20个英文字母/汉字或中英文组合，这个20定义的是字符数而不是字节数。nvarchar2基本上等同于nvarchar。
+注意：一个字符类型占有几个字节存储字符，由其字符编码所决定的。
+第三节：索引
+无索引的表就是一个无序的行集。查找某条记录就得进行全表扫描，速度很慢。建立索引，就是将某列安照某种方式进行排序，可以快速的定位数据，这样可以避免全表扫描。
+虽然索引可以提高数据的查询速度，但是任何事物都是双刃剑，它也有以下缺点：
+（1）索引占据一定的磁盘空间。
+（2）索引减慢了数据插入和删除的速度。因为每次插入和删除时候都需要更新索引，一个表拥有的索引越多，写操作时候的平均性能下降就越大。
+第一节：插入&符号
+http://juzhongdegediao.iteye.com/blog/2191072
+第二节：where元素
+<select id="findActiveBlogLike" parameterType="Blog" resultType="Blog">
+SELECT * FROM BLOG
+WHERE
+<if test="state != null">
+state = #{state}
+</if>
+<if test="title != null">
+AND title like #{title}
+</if>
+<if test="author != null and author.name != null">
+AND title like #{author.name}
+</if>
+</select>
+
+如果我们一个条件都不给出，会怎么样？语句可能会变成这个样子：
+SELECT * FROM BLOG
+WHERE
+这会很惨。或者如果我们仅仅只获得了第二个条件，语句又会变成这样：
+SELECT * FROM BLOG
+WHERE
+AND title like ‘someTitle’
+MyBatis有个简单的方案就能解决这里面90%的问题。如果where没有出现的时候，你可以自定一个。稍稍修改一下，就能完全解决：
+<select id="findActiveBlogLike" parameterType="Blog" resultType="Blog">
+SELECT * FROM BLOG
+<where>
+<if test="state != null">
+state = #{state}
+</if>
+<if test="title != null">
+AND title like #{title}
+</if>
+<if test="author != null and author.name != null">
+AND title like #{author.name}
+</if>
+</where>
+</select>
+这个"where"元素会知道如果它包含的标签中有返回值的话，它就插入一个"where"。此外，如果标签返回的内容是以AND 或OR 开头的，则它会剔除掉。
+
+如果where 元素并没有完全按你想要的那样，那你也可以使用trim 元素自定义它。下面的trim 也相同于where：
+<trim prefix="WHERE" prefixOverrides="AND |OR ">
+…
+</trim>
+
+overrides 元素使用一个管理分隔符组成的文字来进行覆写，空白符也是不能忽略的。这样的结果是移出了所有指定在overrides里的字符，使用with属性里的字符来覆写。
+在动态update语句里相似的情形叫做set。这个set 元素被用做动态囊括列名来更新，而忽略其它的。比如：
+<update id="updateAuthorIfNecessary"
+parameterType="Author">
+update Author
+<set>
+<if test="username != null">username=#{username},</if>
+<if test="password != null">password=#{password},</if>
+<if test="email != null">email=#{email},</if>
+<if test="bio != null">bio=#{bio}</if>
+</set>
+where id=#{id}
+</update>
+set元素将动态的配置SET 关键字，也用来剔除追加到条件末尾的任何不相关的逗号。如果你非常想知道，等同的trim 怎么写，是这样：
+<trim prefix="SET" suffixOverrides=",">
+…
+</trim>
+注意，我们只写了一个前缀，同样我们也可以追加一个后缀。
+
+第三节：foreach
+另外一个对于动态SQL 非常必须的，主是要迭代一个集合，通常是用于IN 条件。比如说：
+<select id="selectPostIn" resultType="Post">
+SELECT *
+FROM POST P
+WHERE ID in
+<foreach item="item" index="index" collection="list"
+open="(" separator="," close=")">
+#{item}
+</foreach>
+</select>
+foreach 元素非常强大，允许你指定一个集合，申明一个项和一个索引变量，用在这个元素的方法体内。也允许你指定开始和结束的字符，也可以在两个迭代器之间加入一个分隔符。它的智能之处在于它不会偶尔追加额外的分隔符。
+注意：你可以传入一个List 实例或者一个数组给MyBatis 作为一个参数对象。如果你这么做，MyBatis会自动将它包装成一个Map，使用它的名称做为key。List 实例将使用"list"做为键，数组实例以"array"作为键。
+
+第四：
+instr函数：(源字符串,目标字符串)
+substr函数：(字符串,截取开始位置,截取长度)
+select id 网易订单号 , merchant_order_id 保单号, product_name 产品名, product_type 产品类型, buy_account_id 用户账号,
+to_char(substr(t.misc,instr(t.misc,'<remark>')+8,(instr(t.misc,'</remark>')-(instr(t.misc,'<remark>')+8)))) 渠道,
+to_char(substr(t.misc,instr(t.misc,'<name>')+6,(instr(t.misc,'</name>')-(instr(t.misc,'<name>')+6)))) 姓名,
+to_char(substr(t.misc,instr(t.misc,'<idNo>')+6,(instr(t.misc,'</idNo>')-(instr(t.misc,'<idNo>')+6)))) 身份证,
+to_char(substr(t.misc,instr(t.misc,'<mobile>')+8,(instr(t.misc,'</mobile>')-(instr(t.misc,'<mobile>')+8)))) 手机号,
+order_status 订单状态,buy_account_id 
+from insrorder.tb_shop_order t WHERE t.id='2015012614ORDER00092420' and order_time > sysdate -20; 
+
+第五：分页
+
+<select id="getPaginatedCapturePrizeActivityList" parameterType="java.util.HashMap" resultMap="capturePrizeActResult">
+     SELECT ACT_ID,ACT_STATUS,PRIZE_NAME,PRIZE_DETAIL,PRIZE_PRICE,PRIZE_PC_IMG,PRIZE_WAP_IMG,PRIZE_SMALL_IMG,WINNER_ACCOUNT_ID,WINNER_CODE,WINNER_ORDER_ID,WINNER_ADDRESS,
+	   CURRENT_USER_COUNT,LIMIT_USER_COUNT,CREATE_TIME,UPDATE_TIME from 
+    (select t.*,rownum rn from 
+	    (select * from TB_INSU_CAPTURE_ACT_INFO where 1=1
+	      <trim>
+	        <if test="@Ognl@isNotEmpty(actId)"> and ACT_ID=#{actId}</if>
+	         <if test="@Ognl@isNotEmpty(actIdLower)"> and ACT_ID &gt; #{actIdLower}</if>
+	          <if test="@Ognl@isNotEmpty(actIdUpper)"> and ACT_ID &lt; #{actIdUpper}</if>
+			<if test="@Ognl@isNotEmpty(actStatus)"> and ACT_STATUS=#{actStatus} </if>
+			<if test="@Ognl@isNotEmpty(actStatusList)"> and 
+				  ACT_STATUS in
+				 <foreach collection="actStatusList" item="item" separator="," close=")" open="(">#{item}</foreach>
+		   </if>
+		    <if test="@Ognl@isNotEmpty(prizeName)"> and PRIZE_NAME LIKE '%${prizeName}%'</if>
+	        <if test="@Ognl@isNotEmpty(winnerAccountId)"> and WINNER_ACCOUNT_ID = #{winnerAccountId} </if>
+	      </trim>
+	      order by ACT_ID desc
+	    )t) where rn&gt;#{beginIndex} and rn &lt;=#{endIndex}  for update
+	</select>
+第一：过滤之后形成表t1
+select * from tb where xx=xx  t1
+第二：表t1添加行号形成t2，并过滤行，也可以对查询的行进行锁住
+select t1.*, rownum rn from((select * from tb where xx=xx)t1) where rn>beginIndex and rn<=endIndex for update
+第三步：从t2表中被锁住的行中获得需要的列数据
+select from t2.xxx, t2.yyy from
+(select t1.*, rownum rn from((select * from tb where xx=xx)t1) where rn>beginIndex and rn<=endIndex for update) t2
+
+第七节：Oracle中decode函数用法
+decode函数用法一：
+decode(条件,值1,返回值1,值2,返回值2,...值n,返回值n,缺省值)
+该函数的含义如下：
+IF 条件=值1 THEN
+　　　　RETURN(翻译值1)
+ELSIF 条件=值2 THEN
+　　　　RETURN(翻译值2)
+　　　　......
+ELSIF 条件=值n THEN
+　　　　RETURN(翻译值n)
+ELSE
+　　　　RETURN(缺省值)
+END IF
+decode函数用法二：
+decode(字段或字段的运算，值1，值2，值3）
+该函数的含义如下：
+当字段或字段的运算的值等于值1时，该函数返回值2，否则返回值3。当然值1，值2，值3也可以是表达式，这个函数使得某些sql语句简单了许多。
+第八节：转换函数
+8.1 to_char函数
+to_char(date,format)：根据format重新格式化date格式。
+常见的格式是：
+yyyy：四位数年
+hh：12小时制
+hh24：24小时制
+mm：两位数的月
+mi：分
+ss：秒
+需要注意的是：不区分大小写的。因为sql本身就不区分大小写的。
+8.2 to_date函数
+to_date函数用于将字符串转换为数字
+8.3 to_number函数
+to_number函数用于将给出的字符转换为数字。
+第九节：BLOG类型
+LOB类型分为BLOB和CLOB两种：BLOB即二进制大型对象（Binary Large Object），适用于存贮非文本的字节流数据（如程序、图象、影音等）。而CLOB，即字符型大型对象（Character Large Object），则与字符集相关，适于存贮文本型的数据（如历史档案、大部头著作等）。
+读写CLOB数据：http://www.tuicool.com/articles/YjieM3
+原文：http://blog.csdn.net/bingjie1217/article/details/21088431
+读写BLOB数据：http://blog.csdn.net/bluesky5219/article/details/36427789
+
+简介：
+http://mybatis.github.io/mybatis-3/zh/
+
+升级注意事项：
+http://gaddma.iteye.com/blog/2030384
+http://www.ibm.com/developerworks/cn/opensource/os-cn-mybatis/
+
+Mybatis的分页研究
+
+http://blog.csdn.net/hupanfeng/article/details/9265341
+
+Mybatis 示例之 SelectKey 
+http://blog.csdn.net/isea533/article/details/21153791
+重点博客：
+http://blog.csdn.net/isea533/article/category/2092001
+http://haohaoxuexi.iteye.com/blog/1333271
+http://blog.csdn.net/hupanfeng/article/category/1443955
+动态sql详细介绍：
+http://www.blogjava.net/stevenjohn/archive/2012/12/25/393451.html
